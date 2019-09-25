@@ -1,16 +1,25 @@
+# coding: utf-8
+
 import socket
-import _thread
+try:
+    import _thread
+except:
+    import thread as _thread
 from struct import *
 
 class DataCollector():
     def __init__(self):
-        from tkinter import Tk, Label, Entry, Button, messagebox
+        try:
+            from tkinter import Tk, Label, Entry, Button, messagebox
+        except:
+            from Tkinter import Tk, Label, Entry, Button
+            import tkMessageBox as messagebox
 
         def set_exp_window():
             for i in range(self.tag_n):
                 Label(self.window, text='tag: %d' % i).grid(row=i, column=0)
-                Button(self.window, text='start', command=lambda: self.start_tag(i)).grid(row=i, column=1)
-                Button(self.window, text='stop', command=lambda: self.stop_tag(i)).grid(row=i, column=2)
+                Button(self.window, text='start', command=lambda a=i: self.start_tag(a)).grid(row=i, column=1)
+                Button(self.window, text='stop', command=lambda a=i: self.stop_tag(a)).grid(row=i, column=2)
 
         def get_initial_window():
             initial_window = Tk()
@@ -28,7 +37,7 @@ class DataCollector():
 
             Label(initial_window, text='标签数量').grid()
             e = Entry(initial_window);e.grid()
-            Button(initial_window, command=lambda: set_tag_n(initial_window, e)).grid()
+            Button(initial_window, text='ok', command=lambda: set_tag_n(initial_window, e)).grid()
 
             return initial_window
 
@@ -56,7 +65,7 @@ class DataCollector():
             # format: ['labelId', 'seqId', 'lock', 'x', 'y', 'z', 'vx', 'vy', 'vz', 'time']
             res = unpack(format, data[8:])
 
-            if not self.buffer[res[0]]:
+            if res[0] not in self.buffer:
                 self.buffer[res[0]] = list()
                 self.tag_ok[res[0]] = True
             self.buffer[res[0]].append(res)
@@ -64,29 +73,48 @@ class DataCollector():
         s.close()
 
     def start_tag(self, i):
-        for tag in self.tag_ok:
-            if self.tag_ok[tag] == True:
+        if i in self.id_tag:
+            tag = self.id_tag[i]
+            try:
                 self.buffer[tag].clear()
+            except:
+                self.buffer[tag] = list()
+            return
+
+        for tag in self.tag_ok:
+            if self.tag_ok[tag]:
+                print(tag)
+                try:
+                    self.buffer[tag].clear()
+                except:
+                    self.buffer[tag] = list()
                 self.tag_ok[tag] = False
                 self.id_tag[i] = tag
+                for a in self.id_tag:
+                    print(a, self.id_tag[a])
                 return
         print('Error: no available tag.')
 
     def stop_tag(self, i):
-        if i not in self.id_tag or self.tag_ok[tag] == True:
-            print('Error: tag not started.')
+        if i not in self.id_tag:
+            print('Error: tag not started1.')
+            return
+        tag = self.id_tag[i]
+        print(tag)
+        if self.tag_ok[tag] == True:
+            print('Error: tag not started2.')
             return
 
-        if not self.id_file[i]:
+        if i not in self.id_file:
             self.id_file[i] = 0
         self.id_file[i] += 1
 
-        with open('%d_%4d.txt' % (i, self.id_file[i]), 'w') as f:
+        with open('%d_%04d.txt' % (i, self.id_file[i]), 'w') as f:
             for line in self.buffer[tag]:
-                f.write(line)
+                f.write(str(line))
                 f.write('\n')
 
-        self.buffer[tag].clear()
+        self.buffer.pop(tag)
         self.tag_ok[tag] = True
         self.id_tag.pop(i)
 
