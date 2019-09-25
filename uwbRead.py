@@ -20,11 +20,12 @@ class DataCollector():
                 Label(self.window, text='tag: %d' % i).grid(row=i, column=0)
                 Button(self.window, text='start', command=lambda a=i: self.start_tag(a)).grid(row=i, column=1)
                 Button(self.window, text='stop', command=lambda a=i: self.stop_tag(a)).grid(row=i, column=2)
+                Button(self.window, text='inspect', command=lambda a=i: self.draw_route(a)).grid(row=i, column=3)
 
         def get_initial_window():
             initial_window = Tk()
             initial_window.title('uwb 数据采集')
-            initial_window.geometry('300x300')
+            initial_window.geometry('400x400')
 
             def set_tag_n(window, e):
                 if e.get().isdigit():
@@ -95,14 +96,18 @@ class DataCollector():
                 return
         print('Error: no available tag.')
 
-    def stop_tag(self, i):
+    def check_id(self, i):
         if i not in self.id_tag:
             print('Error: tag not started1.')
-            return
+            return False
         tag = self.id_tag[i]
-        print(tag)
         if self.tag_ok[tag] == True:
             print('Error: tag not started2.')
+            return False
+        return True
+
+    def stop_tag(self, i):
+        if not self.check_id(i):
             return
 
         if i not in self.id_file:
@@ -114,9 +119,19 @@ class DataCollector():
                 f.write(str(line))
                 f.write('\n')
 
+        Label(self.window, text='id: %d' % self.id_file[i]).grid(row=i, column=4)
+
         self.buffer.pop(tag)
         self.tag_ok[tag] = True
         self.id_tag.pop(i)
+
+    def draw_route(self, i):
+        if not self.check_id(i):
+            return
+
+        from utils import TrackPlot
+        tp = TrackPlot(self.buffer(self.id_tag[i]))
+        tp.draw_route()
 
     def run(self):
         try:
