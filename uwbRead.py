@@ -16,11 +16,23 @@ class DataCollector():
             import tkMessageBox as messagebox
 
         def set_exp_window():
-            for i in range(self.tag_n):
-                Label(self.window, text='tag: %d' % i).grid(row=i, column=0)
-                Button(self.window, text='start', command=lambda a=i: self.start_tag(a)).grid(row=i, column=1)
-                Button(self.window, text='stop', command=lambda a=i: self.stop_tag(a)).grid(row=i, column=2)
-                Button(self.window, text='inspect', command=lambda a=i: self.draw_route(a)).grid(row=i, column=3)
+            for i in range(100, 100 + self.tag_n):
+                ls = list()
+                l = Label(self.window, text='tag: '); l.grid(row=i, column=0)
+                e = Entry(self.window);e.grid(row=i, column=1)
+                bu = Button(self.window, text='ok');bu.grid(row=i, column=2)
+                ls = [l, e, bu]
+                command = (lambda event, b=e, c=ls: set_tag(b, c))
+                bu.bind("<Button-1>", command)
+
+        def set_tag(e, c):
+            for s in c:
+                s.grid_forget()
+            tag_id = int(e.get())
+            Label(self.window, text='tag: %d' % tag_id).grid(row=tag_id, column=0)
+            Button(self.window, text='start', command=lambda a=tag_id: self.start_tag(a)).grid(row=tag_id, column=1)
+            Button(self.window, text='stop', command=lambda a=tag_id: self.stop_tag(a)).grid(row=tag_id, column=2)
+            Button(self.window, text='inspect', command=lambda a=tag_id: self.draw_route(a)).grid(row=tag_id, column=3)
 
         def get_initial_window():
             initial_window = Tk()
@@ -45,8 +57,7 @@ class DataCollector():
         self.window = get_initial_window()
         self.buffer = dict()
         self.tag_ok = dict()
-        self.id_tag = dict()
-        self.id_file = dict()
+        self.file_id = 0
 
     def socket(self):
         print('Creating socket...')
@@ -73,64 +84,39 @@ class DataCollector():
 
         s.close()
 
-    def start_tag(self, i):
-        if i in self.id_tag:
-            tag = self.id_tag[i]
-            try:
-                self.buffer[tag].clear()
-            except:
-                self.buffer[tag] = list()
-            return
+    def start_tag(self, tag):
+        try:
+            self.buffer[tag].clear()
+        except:
+            self.buffer[tag] = list()
 
         for tag in self.tag_ok:
             if self.tag_ok[tag]:
-                print(tag)
                 try:
                     self.buffer[tag].clear()
                 except:
                     self.buffer[tag] = list()
                 self.tag_ok[tag] = False
-                self.id_tag[i] = tag
-                for a in self.id_tag:
-                    print(a, self.id_tag[a])
                 return
         print('Error: no available tag.')
 
-    def check_id(self, i):
-        if i not in self.id_tag:
-            print('Error: tag not started1.')
-            return False
-        tag = self.id_tag[i]
-        if self.tag_ok[tag] == True:
-            print('Error: tag not started2.')
-            return False
-        return True
+    def stop_tag(self, tag):
 
-    def stop_tag(self, i):
-        if not self.check_id(i):
-            return
+        self.file_id += 1
 
-        if i not in self.id_file:
-            self.id_file[i] = 0
-        self.id_file[i] += 1
-
-        with open('%d_%04d.txt' % (i, self.id_file[i]), 'w') as f:
+        with open('%04d.txt' % self.file_id, 'w') as f:
             for line in self.buffer[tag]:
                 f.write(str(line))
                 f.write('\n')
 
-        Label(self.window, text='id: %d' % self.id_file[i]).grid(row=i, column=4)
+        Label(self.window, text='id: %d' % self.file_id).grid(row=tag, column=4)
 
         self.buffer.pop(tag)
         self.tag_ok[tag] = True
-        self.id_tag.pop(i)
 
-    def draw_route(self, i):
-        if not self.check_id(i):
-            return
-
+    def draw_route(self, tag):
         from utils import TrackPlot
-        tp = TrackPlot(self.buffer(self.id_tag[i]))
+        tp = TrackPlot(self.buffer(tag))
         tp.draw_route()
 
     def run(self):
