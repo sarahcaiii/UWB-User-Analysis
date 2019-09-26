@@ -34,6 +34,21 @@ class DataCollector():
             Button(self.window, text='stop', command=lambda a=tag_id: self.stop_tag(a)).grid(row=tag_id, column=2)
             Button(self.window, text='inspect', command=lambda a=tag_id: self.draw_route(a)).grid(row=tag_id, column=3)
 
+            bu = Button(self.window, text='ok', bg='Red');bu.grid(row=tag_id, column=4)
+            _thread.start_new_thread(set_ok_color, (tag_id, bu))
+
+        def set_ok_color(tag_id, bu):
+            import time
+
+            while 1:
+                if tag_id in self.tag_working and self.tag_working[tag_id]:
+                    bu['bg'] = 'Green'
+                else:
+                    bu['bg'] = 'Red'
+
+                self.tag_working[tag_id] = False
+                time.sleep(10000)
+
         def get_initial_window():
             initial_window = Tk()
             initial_window.title('uwb 数据采集')
@@ -57,6 +72,7 @@ class DataCollector():
         self.window = get_initial_window()
         self.buffer = dict()
         self.tag_ok = dict()
+        self.tag_working = dict()
         self.file_id = 0
 
     def socket(self):
@@ -81,6 +97,7 @@ class DataCollector():
                 self.buffer[res[0]] = list()
                 self.tag_ok[res[0]] = True
             self.buffer[res[0]].append(res)
+            self.tag_working[res[0]] = True
 
         s.close()
 
