@@ -79,7 +79,11 @@ def animation_test(plot):
 class TrackPlot:
     def __init__(self, data_list):
         super(TrackPlot, self).__init__()
-        self.data_list = data_list
+        self.data_list = list()
+        for data in data_list:
+            self.data_list.append([d for d in data])
+
+        self.data_list = np.asarray(self.data_list)
 
     def smooth(self, c):
         N = 50
@@ -88,21 +92,23 @@ class TrackPlot:
 
     def draw_route(self):
         from scipy.stats import gaussian_kde
-        x = plot.smooth(plot.data_list[:, 3])
-        y = plot.smooth(plot.data_list[:, 4])
+        x = self.smooth(self.data_list[:, 3])
+        y = self.smooth(self.data_list[:, 4])
         xy = np.vstack([x,y])
         z = gaussian_kde(xy)(xy)
 
         fig, ax = plt.subplots()
+        plt.xlim((-5, 15))
+        plt.ylim((-5, 15))
         ax.scatter(x, y, c=z, s=5, edgecolor='')
         plt.show()
 
 def main():
-    file_name = 'uwb_data_test.txt'
+    file_name = '0002.txt'
     plot = PlotFile(file_name)
-    #draw_test(plot)
+    draw_test(plot)
     #heat_test(plot)
-    animation_test(plot)
+    #animation_test(plot)
 
 
 if __name__ == '__main__':

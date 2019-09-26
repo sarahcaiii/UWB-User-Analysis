@@ -1,19 +1,13 @@
 # coding: utf-8
 
+import os
 import socket
-try:
-    import _thread
-except:
-    import thread as _thread
+import _thread
 from struct import *
 
 class DataCollector():
     def __init__(self):
-        try:
-            from tkinter import Tk, Label, Entry, Button, messagebox
-        except:
-            from Tkinter import Tk, Label, Entry, Button
-            import tkMessageBox as messagebox
+        from tkinter import Tk, Label, Entry, Button, messagebox
 
         def set_exp_window():
             for i in range(100, 100 + self.tag_n):
@@ -30,11 +24,13 @@ class DataCollector():
                 s.grid_forget()
             tag_id = int(e.get())
             Label(self.window, text='tag: %d' % tag_id).grid(row=tag_id, column=0)
+            self.tag_status[tag_id] = Label(self.window, text='sleeping');self.tag_status[tag_id].grid(row=tag_id, column=5)
+
             Button(self.window, text='start', command=lambda a=tag_id: self.start_tag(a)).grid(row=tag_id, column=1)
             Button(self.window, text='stop', command=lambda a=tag_id: self.stop_tag(a)).grid(row=tag_id, column=2)
             Button(self.window, text='inspect', command=lambda a=tag_id: self.draw_route(a)).grid(row=tag_id, column=3)
 
-            bu = Button(self.window, text='ok', bg='Red');bu.grid(row=tag_id, column=4)
+            bu = Button(self.window, bg='Red');bu.grid(row=tag_id, column=4)
             _thread.start_new_thread(set_ok_color, (tag_id, bu))
 
         def set_ok_color(tag_id, bu):
@@ -47,7 +43,7 @@ class DataCollector():
                     bu['bg'] = 'Red'
 
                 self.tag_working[tag_id] = False
-                time.sleep(10000)
+                time.sleep(2)
 
         def get_initial_window():
             initial_window = Tk()
@@ -71,13 +67,18 @@ class DataCollector():
 
         self.window = get_initial_window()
         self.buffer = dict()
-        self.tag_ok = dict()
         self.tag_working = dict()
-        self.file_id = 0
+        self.tag_status = dict()
+
+        try:
+            with open('config.txt', 'r') as f:
+                self.file_id = int(f.readline().strip())
+        except:
+            self.file_id = 0
 
     def socket(self):
         print('Creating socket...')
-        host="192.168.0.201"
+        host="127.0.0.1"
         port=6666
         s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         s.connect((host,port))
@@ -86,7 +87,7 @@ class DataCollector():
         while 1:
             data=s.recv(73)
 
-            if data[4:8] != 'PRES':
+            if data[4:8] != b'PRES':
                 continue
 
             format = '=iibddddddq'
@@ -95,45 +96,50 @@ class DataCollector():
 
             if res[0] not in self.buffer:
                 self.buffer[res[0]] = list()
-                self.tag_ok[res[0]] = True
-            self.buffer[res[0]].append(res)
+
+            if res[0] in self.tag_status and self.tag_status[res[0]]['text'] == 'working':
+                self.buffer[res[0]].append(res)
+
             self.tag_working[res[0]] = True
 
         s.close()
 
     def start_tag(self, tag):
-        try:
-            self.buffer[tag].clear()
-        except:
-            self.buffer[tag] = list()
+        if not self.tag_working[tag]:
+            print('Error: no available tag.')
+            return
 
-        for tag in self.tag_ok:
-            if self.tag_ok[tag]:
-                try:
-                    self.buffer[tag].clear()
-                except:
-                    self.buffer[tag] = list()
-                self.tag_ok[tag] = False
-                return
-        print('Error: no available tag.')
+        self.buffer[tag].clear()
+        self.tag_status[tag]['text'] = 'working'
+
 
     def stop_tag(self, tag):
+        if self.tag_status[tag]['text'] != 'working':
+            return
+
+        from tkinter import Label
 
         self.file_id += 1
-
-        with open('%04d.txt' % self.file_id, 'w') as f:
+        with open('./results/%04d.txt' % self.file_id, 'w') as f:
             for line in self.buffer[tag]:
                 f.write(str(line))
                 f.write('\n')
 
-        Label(self.window, text='id: %d' % self.file_id).grid(row=tag, column=4)
+        with open('config.txt', 'w') as f:
+            f.write(str(self.file_id))
+            f.write('\n')
 
-        self.buffer.pop(tag)
-        self.tag_ok[tag] = True
+        Label(self.window, text='id: %04d' % self.file_id).grid(row=tag, column=6)
+
+        self.tag_status[tag]['text'] = 'stopped'
 
     def draw_route(self, tag):
+        if not self.buffer[tag]:
+            print('no data for plotting.')
+            return
+
         from utils import TrackPlot
-        tp = TrackPlot(self.buffer(tag))
+        tp = TrackPlot(self.buffer[tag])
         tp.draw_route()
 
     def run(self):
