@@ -69,6 +69,7 @@ class DataCollector():
         self.buffer = dict()
         self.tag_working = dict()
         self.tag_status = dict()
+        self.tag_save_id = dict()
 
         try:
             with open('config.txt', 'r') as f:
@@ -111,7 +112,8 @@ class DataCollector():
 
         self.buffer[tag].clear()
         self.tag_status[tag]['text'] = 'working'
-
+        if tag in self.tag_save_id:
+            self.tag_save_id[tag].grid_forget()
 
     def stop_tag(self, tag):
         if self.tag_status[tag]['text'] != 'working':
@@ -129,7 +131,7 @@ class DataCollector():
             f.write(str(self.file_id))
             f.write('\n')
 
-        Label(self.window, text='id: %04d' % self.file_id).grid(row=tag, column=6)
+        self.tag_save_id[tag] = Label(self.window, text='id: %04d' % self.file_id);self.tag_save_id[tag].grid(row=tag, column=6)
 
         self.tag_status[tag]['text'] = 'stopped'
 
@@ -140,7 +142,10 @@ class DataCollector():
 
         from utils import TrackPlot
         tp = TrackPlot(self.buffer[tag])
-        tp.draw_route()
+        try:
+            tp.draw_route()
+        except:
+            print('not enough data for plotting.')
 
     def run(self):
         try:
