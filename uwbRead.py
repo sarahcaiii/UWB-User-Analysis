@@ -5,6 +5,88 @@ import socket
 import _thread
 from struct import *
 
+class Tag():
+    def __init__(self, tag_id, file_id):
+        self.id = tag_id
+
+        self.working = False
+
+        self.label = None
+        self.buttons = dict()
+        self.status = None
+
+        self.buffer = list()
+        self.save_id = None
+        self.file_id = file_id
+
+    def initial_buttons(self, window):
+        from tkinter import Button, Label
+        self.label = Label(window, text='tag: %d' % self.id)
+        self.buttons['start'] = Button(window, text='start', command=self.start_tag)
+        self.buttons['stop'] = Button(window, text='stop', command=self.stop_tag)
+        self.buttons['inspect'] = Button(window, text='inspect', command=self.draw_route)
+        self.buttons['light'] = Button(window, bg='Red')
+        self.status = Label(window, text='sleeping')
+
+        def set_ok_color(tag_id, bu):
+            import time
+            while 1:
+                bu['bg'] = 'Green' if self.working else 'Red'
+                self.working = False
+                time.sleep(2)
+
+        _thread.start_new_thread(set_ok_color, (self.id, self.buttons['light']))
+
+    def show_buttons(self):
+        self.label.grid(row=self.id, column=0)
+        self.buttons['start'].grid(row=self.id, column=1)
+        self.buttons['stop'].grid(row=self.id, column=2)
+        self.buttons['inspect'].grid(row=self.id, column=3)
+        self.buttons['light'].grid(row=self.id, column=4)
+        self.status.grid(row=self.id, column=5)
+
+    def start_tag(self):
+        if not self.working:
+            print('Error: no available tag.')
+            return
+
+        self.buffer.clear()
+        self.status['text'] = 'working'
+        if self.save_id:
+            self.save_id.grid_forget()
+
+    def stop_tag(self):
+        if self.status['text'] != 'working':
+            return
+
+        self.file_id[0] += 1
+        with open('./results/%04d.txt' % self.file_id[0], 'w') as f:
+            for line in self.buffer:
+                f.write(str(line))
+                f.write('\n')
+
+        with open('config.txt', 'w') as f:
+            f.write(str(self.file_id[0]))
+            f.write('\n')
+
+        self.status['text'] = 'stopped\t id: %04d' % self.file_id[0]
+
+    def draw_route(self, tag):
+        if not self.buffer[tag]:
+            print('no data for plotting.')
+            return
+
+        from utils import TrackPlot
+        tp = TrackPlot(self.buffer[tag])
+        try:
+            tp.draw_route()
+        except:
+            print('not enough data for plotting.')
+
+    def append_buffer(self, data):
+        if self.status['text'] == 'working':
+            self.buffer.append(data)
+
 class DataCollector():
     def __init__(self):
         from tkinter import Tk, Label, Entry, Button, messagebox
@@ -23,27 +105,10 @@ class DataCollector():
             for s in c:
                 s.grid_forget()
             tag_id = int(e.get())
-            Label(self.window, text='tag: %d' % tag_id).grid(row=tag_id, column=0)
-            self.tag_status[tag_id] = Label(self.window, text='sleeping');self.tag_status[tag_id].grid(row=tag_id, column=5)
 
-            Button(self.window, text='start', command=lambda a=tag_id: self.start_tag(a)).grid(row=tag_id, column=1)
-            Button(self.window, text='stop', command=lambda a=tag_id: self.stop_tag(a)).grid(row=tag_id, column=2)
-            Button(self.window, text='inspect', command=lambda a=tag_id: self.draw_route(a)).grid(row=tag_id, column=3)
-
-            bu = Button(self.window, bg='Red');bu.grid(row=tag_id, column=4)
-            _thread.start_new_thread(set_ok_color, (tag_id, bu))
-
-        def set_ok_color(tag_id, bu):
-            import time
-
-            while 1:
-                if tag_id in self.tag_working and self.tag_working[tag_id]:
-                    bu['bg'] = 'Green'
-                else:
-                    bu['bg'] = 'Red'
-
-                self.tag_working[tag_id] = False
-                time.sleep(2)
+            self.tag[tag_id] = Tag(tag_id, self.file_id)
+            self.tag[tag_id].initial_buttons(self.window)
+            self.tag[tag_id].show_buttons()
 
         def get_initial_window():
             initial_window = Tk()
@@ -66,23 +131,18 @@ class DataCollector():
             return initial_window
 
         self.window = get_initial_window()
-        self.buffer = dict()
-        self.tag_working = dict()
-        self.tag_status = dict()
-        self.tag_save_id = dict()
+        self.tag = dict()
 
         try:
             with open('config.txt', 'r') as f:
-                self.file_id = int(f.readline().strip())
+                self.file_id = [int(f.readline().strip())]
         except:
-            self.file_id = 0
+            self.file_id = [0]
 
     def socket(self):
         print('Creating socket...')
-        host="127.0.0.1"
-        port=6666
-        s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        s.connect((host,port))
+        s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        s.connect(('127.0.0.1', 6666))
         print('Socket connected.')
 
         while 1:
@@ -91,61 +151,13 @@ class DataCollector():
             if data[4:8] != b'PRES':
                 continue
 
-            format = '=iibddddddq'
             # format: ['labelId', 'seqId', 'lock', 'x', 'y', 'z', 'vx', 'vy', 'vz', 'time']
-            res = unpack(format, data[8:])
+            res = unpack('=iibddddddq', data[8:])
 
-            if res[0] not in self.buffer:
-                self.buffer[res[0]] = list()
-
-            if res[0] in self.tag_status and self.tag_status[res[0]]['text'] == 'working':
-                self.buffer[res[0]].append(res)
-
-            self.tag_working[res[0]] = True
+            self.tag[res[0]].append_buffer(res)
+            self.tag[res[0]].working = True
 
         s.close()
-
-    def start_tag(self, tag):
-        if not self.tag_working[tag]:
-            print('Error: no available tag.')
-            return
-
-        self.buffer[tag].clear()
-        self.tag_status[tag]['text'] = 'working'
-        if tag in self.tag_save_id:
-            self.tag_save_id[tag].grid_forget()
-
-    def stop_tag(self, tag):
-        if self.tag_status[tag]['text'] != 'working':
-            return
-
-        from tkinter import Label
-
-        self.file_id += 1
-        with open('./results/%04d.txt' % self.file_id, 'w') as f:
-            for line in self.buffer[tag]:
-                f.write(str(line))
-                f.write('\n')
-
-        with open('config.txt', 'w') as f:
-            f.write(str(self.file_id))
-            f.write('\n')
-
-        self.tag_save_id[tag] = Label(self.window, text='id: %04d' % self.file_id);self.tag_save_id[tag].grid(row=tag, column=6)
-
-        self.tag_status[tag]['text'] = 'stopped'
-
-    def draw_route(self, tag):
-        if not self.buffer[tag]:
-            print('no data for plotting.')
-            return
-
-        from utils import TrackPlot
-        tp = TrackPlot(self.buffer[tag])
-        try:
-            tp.draw_route()
-        except:
-            print('not enough data for plotting.')
 
     def run(self):
         try:
