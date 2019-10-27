@@ -71,14 +71,15 @@ class Tag():
 
         self.status['text'] = 'stopped\t id: %04d' % self.file_id[0]
 
-    def draw_route(self, tag):
-        if not self.buffer[tag]:
+    def draw_route(self):
+        if not self.buffer:
             print('no data for plotting.')
             return
 
         from utils import TrackPlot
-        tp = TrackPlot(self.buffer[tag])
+
         try:
+            tp = TrackPlot(self.buffer)
             tp.draw_route()
         except:
             print('not enough data for plotting.')
@@ -154,8 +155,9 @@ class DataCollector():
             # format: ['labelId', 'seqId', 'lock', 'x', 'y', 'z', 'vx', 'vy', 'vz', 'time']
             res = unpack('=iibddddddq', data[8:])
 
-            self.tag[res[0]].append_buffer(res)
-            self.tag[res[0]].working = True
+            if res[0] in self.tag:
+                self.tag[res[0]].append_buffer(res)
+                self.tag[res[0]].working = True
 
         s.close()
 
