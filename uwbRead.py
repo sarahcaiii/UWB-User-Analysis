@@ -80,9 +80,9 @@ class Tag():
 
         try:
             tp = TrackPlot(self.buffer)
-            tp.draw_route()
         except:
             print('not enough data for plotting.')
+        tp.draw_route()
 
     def append_buffer(self, data):
         if self.status['text'] == 'working':
