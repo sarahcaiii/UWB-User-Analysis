@@ -41,7 +41,7 @@ class PlotFile:
 
 def draw_test(plot):
     plot.draw_x(311)
-    plot.draw_y(312)
+   #plot.draw_y(312)
     plot.draw_route(313)
     plt.show()
 
@@ -98,15 +98,24 @@ class TrackPlot:
         z = gaussian_kde(xy)(xy)
 
         fig, ax = plt.subplots()
-        plt.xlim((-5, 15))
-        plt.ylim((-5, 15))
-        ax.scatter(x, y, c=z, s=5, edgecolor='')
+        plt.xlim((-20, 25))
+        plt.ylim((-10, 10))
+
+        bg = plt.imread('tmall.png')
+        ax.imshow(bg, extent=[-33, 38, -37, 40])
+        ax.scatter(x, y, c=z, s=3)
+
         plt.show()
 
 def main():
-    file_name = '0002.txt'
-    plot = PlotFile(file_name)
-    draw_test(plot)
+    file_name = './results/0001.txt'
+
+    buffer = list()
+    with open(file_name) as f:
+        for line in f.readlines():
+            buffer.append(get_data_from_string(line))
+    plot = TrackPlot(buffer)
+    plot.draw_route()
     #heat_test(plot)
     #animation_test(plot)
 
