@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.path as mpath
 import numpy as np
+import math
 
 def get_data_from_string(data_string):
     '''
@@ -56,6 +57,22 @@ class TrackPlot:
 
             self.data_list = np.append(np.append(self.data_list[:smooth_n], self.data_list[index], axis=0), self.data_list[-smooth_n:-1], axis=0)
 
+    def segmentation(self):
+        degree_threshold = 5
+        hold_index_list = []
+        previous_azimuth = 1000
+
+        for data_id, data in enumerate(self.data_list[:-1]):
+            next_data = self.data_list[data_id + 1]
+            diff_vector = next_data[3:5] - data[3:5]
+            azimuth = (math.degrees(math.atan2(*diff_vector)) + 360) % 360
+
+            if abs(azimuth - previous_azimuth) > degree_threshold:
+                hold_index_list.append(data_id)
+                previous_azimuth = azimuth
+        hold_index_list.append(len(self.data_list) - 1)
+        self.data_list = self.data_list[hold_index_list]
+
     def preprocess(self, test=False):
         #plt.scatter(self.data_list[:,3], self.data_list[:,4], s=2, label='1')
         self.extreme_filter()
@@ -79,8 +96,10 @@ class TrackPlot:
 
     def draw_route(self):
         from scipy.stats import gaussian_kde
-        x = self.interp(self.data_list[:, 3])
-        y = self.interp(self.data_list[:, 4])
+        #x = self.interp(self.data_list[:, 3])
+        #y = self.interp(self.data_list[:, 4])
+        x = self.data_list[:, 3]
+        y = self.data_list[:, 4]
         xy = np.vstack([x,y])
         z = gaussian_kde(xy)(xy)
 
@@ -90,10 +109,11 @@ class TrackPlot:
 
         bg = plt.imread('tmall.png')
         ax.imshow(bg, extent=[-31, 38, -37, 43])
-        ax.scatter(x, y, c=z, s=3)
+        #ax.scatter(x, y, c=z, s=3)
+        ax.plot(x, y)
 
 def draw_test():
-    file_name = './results/0120.txt'
+    file_name = './results/0121.txt'
     data_list = get_data_list_from_file(file_name)
     plot = TrackPlot(data_list)
     plot.preprocess()
@@ -113,5 +133,5 @@ def save_test():
 
 
 if __name__ == '__main__':
-    #draw_test()
-    save_test()
+    draw_test()
+    #save_test()

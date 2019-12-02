@@ -4,3 +4,4 @@ venv/
 results/
 washed_figs/
 raw_figs/
+.DS_Store
