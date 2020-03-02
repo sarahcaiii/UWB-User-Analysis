@@ -9,6 +9,13 @@ def get_data_from_string(data_string):
     '''
     return [float(x) for x in data_string.strip(' ()\n').split(',')]
 
+def get_data_from_file(file_name):
+    buffer = list()
+    with open(file_name) as f:
+        for line in f.readlines():
+            buffer.append(get_data_from_string(line))
+    return buffer
+
 class PlotFile:
     def __init__(self, file_name):
         super(PlotFile, self).__init__()
@@ -56,26 +63,6 @@ def heat_test(plot):
     ax.scatter(x, y, c=z, s=5, edgecolor='')
     plt.show()
 
-def animation_test(plot):
-    from matplotlib import animation
-    fig, ax = plt.subplots()
-    line, = ax.scatter(plot.data_list[:,3], plot.data_list[:,4])
-
-    def animate(i):
-        line.set_ydata(plot.data_list[i,4])
-        return line,
-    def init():
-        line.set_ydata(plot.data_list[0, 4])
-        return line,
-
-    ani = animation.FuncAnimation(fig=fig,
-                                  func=animate,
-                                  frames=100,
-                                  init_func=init,
-                                  interval=20,
-                                  blit=True)
-    plt.show()
-
 class TrackPlot:
     def __init__(self, data_list):
         super(TrackPlot, self).__init__()
@@ -110,10 +97,7 @@ class TrackPlot:
 def main():
     file_name = './results/0001.txt'
 
-    buffer = list()
-    with open(file_name) as f:
-        for line in f.readlines():
-            buffer.append(get_data_from_string(line))
+    buffer = get_data_from_file(filr_name)
     plot = TrackPlot(buffer)
     plot.draw_route()
     #heat_test(plot)
